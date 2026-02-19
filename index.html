@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .stats {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--tg-theme-button-color, #40a7e3);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .add-button {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #fff);
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--tg-theme-bg-color, #fff);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .modal-content h2 {
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-text-color, #000);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .save-btn {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        
+        .cancel-btn {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000);
+        }
+        
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .task-item {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .task-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--tg-theme-button-color, #40a7e3);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .task-checkbox.checked {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: white;
+        }
+        
+        .task-content {
+            flex: 1;
+        }
+        
+        .task-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .task-meta {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .task-done .task-title {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+        
+        .delete-btn {
+            color: #ff4444;
+            cursor: pointer;
+            font-size: 20px;
+            opacity: 0.7;
+        }
+        
+        .delete-btn:hover {
+            opacity: 1;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-state p {
+            margin-top: 8px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 4px;
+            border-radius: 8px;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            background: var(--tg-theme-bg-color, #fff);
+            color: var(--tg-theme-button-color, #40a7e3);
+            font-weight: 600;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.5;
+        }
+        
+        .date-picker {
+            position: relative;
+        }
+        
+        .date-picker input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Задачи</h1>
+        <button class="refresh-btn" onclick="loadTasks()">🔄</button>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div class="stat-item">
+            <div class="stat-value" id="totalTasks">0</div>
+            <div class="stat-label">Всего</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="activeTasks">0</div>
+            <div class="stat-label">Активных</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="doneTasks">0</div>
+            <div class="stat-label">Выполнено</div>
+        </div>
+    </div>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('all')">Все</div>
+        <div class="tab" onclick="switchTab('active')">Активные</div>
+        <div class="tab" onclick="switchTab('done')">Выполненные</div>
+    </div>
+    
+    <div id="loading" class="loading" style="display: none;">Загрузка...</div>
+    
+    <div id="taskList" class="task-list"></div>
+    
+    <button class="add-button" onclick="openModal()">
+        ➕ Добавить задачу
+    </button>
+    
+    <!-- Модальное окно добавления задачи -->
+    <div class="modal" id="taskModal">
+        <div class="modal-content">
+            <h2>➕ Новая задача</h2>
+            
+            <div class="form-group">
+                <label>📝 Задача</label>
+                <input type="text" id="taskText" placeholder="Например: Сдать проект">
+            </div>
+            
+            <div class="form-group">
+                <label>📅 Дата</label>
+                <input type="date" id="taskDate">
+            </div>
+            
+            <div class="form-group">
+                <label>🏷 Категория</label>
+                <select id="taskCategory">
+                    <option value="Учеба">📚 Учеба</option>
+                    <option value="Личное">🏠 Личное</option>
+                    <option value="Другое">📌 Другое</option>
+                </select>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Отмена</button>
+                <button class="save-btn" onclick="addTask()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const tg = window.Telegram.WebApp;
+        let tasks = [];
+        let currentTab = 'all';
+        
+        // Инициализация
+        tg.ready();
+        tg.expand(); // Раскрыть на весь экран
+        
+        // Загружаем задачи при старте
+        loadTasks();
+        
+        function loadTasks() {
+            showLoading(true);
+            
+            // Отправляем запрос к боту
+            tg.sendData(JSON.stringify({
+                action: 'get_tasks'
+            }));
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        function updateStats() {
+            const total = tasks.length;
+            const active = tasks.filter(t => !t.is_done).length;
+            const done = tasks.filter(t => t.is_done).length;
+            
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('activeTasks').textContent = active;
+            document.getElementById('doneTasks').textContent = done;
+        }
+        
+        function renderTasks() {
+            const container = document.getElementById('taskList');
+            let filteredTasks = tasks;
+            
+            if (currentTab === 'active') {
+                filteredTasks = tasks.filter(t => !t.is_done);
+            } else if (currentTab === 'done') {
+                filteredTasks = tasks.filter(t => t.is_done);
+            }
+            
+            if (filteredTasks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div>📭</div>
+                        <p>Нет задач</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredTasks.forEach(task => {
+                const date = new Date(task.due_date.split('.').reverse().join('-'));
+                const formattedDate = date.toLocaleDateString('ru-RU', {
+                    day: 'numeric',
+                    month: 'long'
+                });
+                
+                html += `
+                    <div class="task-item ${task.is_done ? 'task-done' : ''}" data-id="${task.id}">
+                        <div class="task-checkbox ${task.is_done ? 'checked' : ''}" onclick="toggleTask(${task.id})">
+                            ${task.is_done ? '✓' : ''}
+                        </div>
+                        <div class="task-content">
+                            <div class="task-title">${task.task_text}</div>
+                            <div class="task-meta">
+                                ${formattedDate} · ${task.category || '📌 Задача'}
+                            </div>
+                        </div>
+                        <div class="delete-btn" onclick="deleteTask(${task.id})">🗑</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateStats();
+            showLoading(false);
+        }
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Обновляем активный таб
+            document.querySelectorAll('.tab').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.tab')[tab === 'all' ? 0 : tab === 'active' ? 1 : 2].classList.add('active');
+            
+            renderTasks();
+        }
+        
+        function openModal() {
+            // Устанавливаем сегодняшнюю дату по умолчанию
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('taskDate').value = `${yyyy}-${mm}-${dd}`;
+            
+            document.getElementById('taskModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('taskModal').classList.remove('active');
+            document.getElementById('taskText').value = '';
+        }
+        
+        function addTask() {
+            const text = document.getElementById('taskText').value.trim();
+            const dateInput = document.getElementById('taskDate').value;
+            const category = document.getElementById('taskCategory').value;
+            
+            if (!text) {
+                alert('Введите название задачи');
+                return;
+            }
+            
+            if (!dateInput) {
+                alert('Выберите дату');
+                return;
+            }
+            
+            // Преобразуем YYYY-MM-DD в DD.MM
+            const [year, month, day] = dateInput.split('-');
+            const dueDate = `${day}.${month}`;
+            
+            tg.sendData(JSON.stringify({
+                action: 'add_task',
+                task_text: text,
+                due_date: dueDate,
+                category: category
+            }));
+            
+            closeModal();
+        }
+        
+        function toggleTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            tg.sendData(JSON.stringify({
+                action: 'toggle_task',
+                task_id: taskId,
+                is_done: !task.is_done
+            }));
+        }
+        
+        function deleteTask(taskId) {
+            if (!confirm('Удалить задачу?')) return;
+            
+            tg.sendData(JSON.stringify({
+                action: 'delete_task',
+                task_id: taskId
+            }));
+        }
+        
+        // Получаем данные от бота
+        tg.onEvent('mainButtonClicked', function() {
+            tg.close();
+        });
+        
+        // Здесь бот будет отправлять данные
+        window.addEventListener('message', function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.action === 'tasks_loaded') {
+                    tasks = data.tasks;
+                    renderTasks();
+                } else if (data.action === 'task_added') {
+                    loadTasks(); // Перезагружаем список
+                } else if (data.action === 'task_toggled') {
+                    loadTasks();
+                } else if (data.action === 'task_deleted') {
+                    loadTasks();
+                }
+            } catch (e) {}
+        });
+    </script>
+</body>
+</html>
