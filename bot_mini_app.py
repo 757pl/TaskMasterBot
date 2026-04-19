@@ -7,6 +7,16 @@ from telegram.ext import (ApplicationBuilder, CommandHandler, MessageHandler, Co
 from dotenv import load_dotenv
 from database import *
 
+# Добавляем колонку due_time, если её нет
+conn = sqlite3.connect('tasks.db')
+cur = conn.cursor()
+try:
+    cur.execute('ALTER TABLE tasks ADD COLUMN due_time TEXT DEFAULT "07:00"')
+    print("✅ Колонка due_time добавлена")
+except sqlite3.OperationalError:
+    print("ℹ️ Колонка due_time уже есть")
+conn.commit()
+conn.close()
 # ========== ПОДКЛЮЧЕНИЕ ==========
 load_dotenv()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
