@@ -198,13 +198,21 @@ async def list_completed_tasks(update, context):
     await update.message.reply_text(text, parse_mode='Markdown', reply_markup=get_completed_tasks_keyboard())
 
 async def done_task_command(update, context):
+    user_id = update.effective_user.id
     try:
-        task_id = int(context.args[0])
-        user_id = update.effective_user.id
-        complete_task(task_id, user_id)
-        await update.message.reply_text(f"✅ Задача {task_id} выполнена!\n\nОна появится в «Выполненные задачи» и удалится через 14 дней.")
-    except:
+        # Пробуем получить номер задачи из аргументов
+        if context.args:
+            task_id = int(context.args[0])
+            complete_task(task_id, user_id)
+            await update.message.reply_text(f"✅ Задача {task_id} выполнена!")
+            return
+        
+        # Если аргументов нет — значит, команда вызвана без номера
         await update.message.reply_text("❌ Используй: `/done <номер>`\nНомер из «Активные задачи»", parse_mode='Markdown')
+    except ValueError:
+        await update.message.reply_text("❌ Номер задачи должен быть числом", parse_mode='Markdown')
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка: {e}")de='Markdown')
 
 async def delete_task_command(update, context):
     try:
