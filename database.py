@@ -17,9 +17,18 @@ def init_db():
         )
     ''')
     
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            joined_date TEXT
+        )
+    ''')
+    
     conn.commit()
     conn.close()
-
+    
 def add_task(user_id, task_text, due_date, due_time='07:00'):
     conn = sqlite3.connect('tasks.db')
     cur = conn.cursor()
@@ -112,3 +121,46 @@ def cleanup_old_completed_tasks():
     conn.commit()
     conn.close()
     return deleted
+    
+def get_user_stats():
+    conn = sqlite3.connect('tasks.db')
+    cur = conn.cursor()
+    cur.execute('SELECT COUNT(*) FROM users')
+    total_users = cur.fetchone()[0]
+    cur.execute('SELECT COUNT(*) FROM tasks')
+    total_tasks = cur.fetchone()[0]
+    cur.execute('SELECT COUNT(*) FROM tasks WHERE is_done = 0')
+    active_tasks = cur.fetchone()[0]
+    cur.execute('SELECT COUNT(*) FROM tasks WHERE is_done = 1')
+    done_tasks = cur.fetchone()[0]
+    conn.close()
+    return total_users, total_tasks, active_tasks, done_tasks
+
+def get_all_users():
+    conn = sqlite3.connect('tasks.db')
+    cur = conn.cursor()
+    cur.execute('SELECT user_id, first_name, username, joined_date FROM users')
+    users = cur.fetchall()
+    conn.close()
+    return users
+
+def delete_user_by_id(target_user_id):
+    conn = sqlite3.connect('tasks.db')
+    cur = conn.cursor()
+    cur.execute('DELETE FROM tasks WHERE user_id = ?', (target_user_id,))
+    tasks_deleted = cur.rowcount
+    cur.execute('DELETE FROM users WHERE user_id = ?', (target_user_id,))
+    user_deleted = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return user_deleted, tasks_deleted
+    
+def add_user(user_id, username, first_name):
+    conn = sqlite3.connect('tasks.db')
+    cur = conn.cursor()
+    cur.execute('''
+        INSERT OR IGNORE INTO users (user_id, username, first_name, joined_date)
+        VALUES (?, ?, ?, ?)
+    ''', (user_id, username, first_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    conn.commit()
+    conn.close()
