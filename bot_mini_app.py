@@ -305,6 +305,22 @@ async def schedule(update, context):
     await update.message.reply_text(text, parse_mode='Markdown', reply_markup=get_main_keyboard())
 
 # ========== АДМИН ==========
+async def admin_panel(update, context):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("⛔ У вас нет доступа к админ-панели")
+        return
+    
+    text = (
+        "👑 **Админ-панель**\n\n"
+        "📊 `/stats` - статистика пользователей и задач\n"
+        "👥 `/users` - список всех пользователей\n"
+        "🗑 `/cleanup` - удалить старые выполненные задачи\n"
+        "❌ `/deluser <id>` - удалить пользователя\n\n"
+        "📌 Для выполнения команды просто напишите её в чат"
+    )
+    await update.message.reply_text(text, parse_mode='Markdown')
+    
 async def admin_cleanup(update, context):
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("⛔ Нет доступа")
@@ -363,7 +379,49 @@ async def handle_text(update, context):
     
     else:
         await update.message.reply_text("❓ Не понял. Используй кнопки меню 👇", reply_markup=get_main_keyboard())
+# ========== АДМИН-КОМАНДЫ (дополнительные) ==========
+async def stats(update, context):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    total_users, total_tasks, active_tasks, done_tasks = get_user_stats()
+    await update.message.reply_text(
+        f"📊 **Статистика**\n\n"
+        f"👥 Пользователей: {total_users}\n"
+        f"📝 Всего задач: {total_tasks}\n"
+        f"✅ Активных: {active_tasks}\n"
+        f"✔ Выполненных: {done_tasks}",
+        parse_mode='Markdown'
+    )
 
+async def users_list(update, context):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    users = get_all_users()
+    if not users:
+        await update.message.reply_text("📭 Нет пользователей")
+        return
+    text = "👥 **Список пользователей:**\n\n"
+    for user_id, first_name, username, joined_date in users:
+        username_text = f"@{username}" if username else "нет username"
+        text += f"🆔 `{user_id}` | {first_name} | {username_text}\n📅 {joined_date}\n\n"
+    await update.message.reply_text(text, parse_mode='Markdown')
+
+async def deluser(update, context):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    try:
+        target_id = int(context.args[0])
+        if target_id == ADMIN_ID:
+            await update.message.reply_text("❌ Нельзя удалить себя")
+            return
+        user_deleted, tasks_deleted = delete_user_by_id(target_id)
+        if user_deleted:
+            await update.message.reply_text(f"✅ Пользователь {target_id} удалён\n📝 Задач удалено: {tasks_deleted}")
+        else:
+            await update.message.reply_text("❌ Пользователь не найден")
+    except:
+        await update.message.reply_text("❌ Используй: `/deluser <id>`", parse_mode='Markdown')
+        
 # ========== ЗАПУСК ==========
 if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
@@ -374,7 +432,11 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("delete", delete_task_command))
     app.add_handler(CommandHandler("delcomp", delete_completed_task_command))
     app.add_handler(CommandHandler("completed", list_completed_tasks))
+    app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CommandHandler("admin_cleanup", admin_cleanup))
+    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("users", users_list))
+    app.add_handler(CommandHandler("deluser", deluser))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     
     # Запуск напоминаний (каждую минуту)
